@@ -1,113 +1,81 @@
+# Blood Drop Feature Extraction
 
-# Rotasyon ve Slicing Analizi ile Görüntü İşleme
+Image processing and classification pipeline for blood drop images, built for my BSc thesis in Computer Engineering at Galatasaray University (supervised by Prof. Mouloud Adel, May 2025).
 
-Bu proje, kan damlası görüntüleri üzerinde polar koordinat dönüşümü, açısal slicing ve sınıflandırma analizi gibi görüntü işleme tekniklerini kullanarak biyolojik parametrelerin tahmin edilmesine yönelik bir yaklaşım sunar. Python ve OpenCV kütüphanesiyle geliştirilmiş olan bu sistem, kan damlası görüntülerinden çıkarılan özelliklerin biyolojik analizlerde kullanılabilmesini hedefler.
+The goal is to classify dried blood drop images into **HDL**, **LDL** and **control** groups using only the shape and texture of the drop, as a possible low-cost and non-invasive alternative to lab tests.
 
----
+## How it works
 
-## Projenin Amacı
-- Kan damlası görüntülerinin farklı açılardan incelenmesi: Görüntüler, hem rotasyon hem de slicing teknikleriyle farklı açılardan analiz edilerek detaylı bilgi elde edilmesi sağlanır.
-- Polar koordinat dönüşümü ve açısal slicing ile özellik çıkarımı yapılması: Görüntülerde belirlenen merkez etrafında polar koordinat sistemine dönüştürme ve belirli açılarda dilimleme (slicing) işlemleri uygulanarak, her açı için ayırt edici özellikler (ör. şekil, kontur, renk, yoğunluk) çıkarılır.
-- Çıkarılan özellikler ile biyolojik parametre tahmini ve sınıflandırma yapılması: Elde edilen özellikler kullanılarak, HDL (yüksek yoğunluklu lipoprotein), LDL (düşük yoğunluklu lipoprotein) ve kontrol grupları arasında sınıflandırma algoritmaları uygulanır. Böylece görüntülerden biyolojik parametre tahmini gerçekleştirilir.
+1. **Preprocessing:** grayscale conversion, Otsu thresholding and morphological opening to separate the drop from the background. The drop's center is found with image moments.
+2. **Polar transform:** each drop is converted to polar coordinates around its center with a custom function, so it can be analyzed both radially (center to edge) and angularly (0° to 360°).
+3. **Angular slicing and rotation:** each drop is cut into angular slices (10°, 15°, 30°, 45°, 60°, 90°), and the starting angle is shifted from 0° to 59°. This produces many versions of each image and works as data augmentation.
+4. **Feature extraction:** four features per slice: mean radial intensity, mean angular intensity, and the average of the first 10 Fourier components of each profile.
+5. **Classification:** 10 scikit-learn classifiers (Random Forest, Extra Trees, Logistic Regression, SVC, MLP and others) are compared on four tasks, using repeated stratified 5-fold cross-validation.
 
----
+## Results
 
-## Proje Yapısı
-```
-KOD/
-├── rotation_angle_optimization/
-│   ├── rotating_angle_analysis_45deg/
-│   │   ├── merge_all_csvs_for_45deg.py
-│   │   ├── rotate_0_to_360_at_45deg.py
-│   ├── rotating_angle_analysis_60deg/
-│   │   ├── merge_all_csvs_for_60deg.py
-│   │   ├── rotate_0_to_360_at_60deg.py
-│   ├── best_rotation_selector/
-│   │   ├── visualize_best_rotation_result.py
-│   │   ├── best_rotating_angle_finder.py
-├── original_dataset_classification/
-│   ├── feature_extraction_and_visualization.py
-│   ├── evaluate_classifiers_with_confusion.py
-│   ├── original_dataset_model_comparison.py
-├── slicing_angle_analysis/
-│   ├── class_compare_slicing_angle.py
-│   ├── slice_feature_extraction.py
-├── visualize_best_model_results/
-│   ├── compare_best_model_confusions.py
-│   ├── confusion_matrix_with_sample_info.py
-├── data/ (kullanıcı tarafından oluşturulmalı)
-│   ├── DataBase/
-│   ├── Cropped_Sets_45deg/
-│   ├── Cropped_Sets_60deg/
-├── CSV/ (kullanıcı tarafından oluşturulmalı)
-│   ├── FeatureCSVs/
-│   ├── FinalClassificationCSVs/
-│   ├── BestRotatingAngle/
-│   │   ├── rotation_classification_results.csv
-│   ├── features_for_binary_classification_HDL_CONTROL.csv
-│   ├── features_for_binary_classification.csv
-│   ├── features_for_binary_classification_LDL_CONTROL.csv
-│   ├── features_for_multi_classification.csv
-│   ├── 60DegRotating/
-│   │   ├── FinalClassificationCSVs/
-│   │   │   ├── HDL_vs_CONTROL/Set_030deg.csv
-│   │   │   ├── HDL_vs_LDL/Set_016deg.csv
-│   │   │   ├── HDL_vs_LDL_vs_CONTROL/Set_025deg.csv
-│   ├── 45DegRotating/
-│   │   ├── FinalClassificationCSVs/
-│   │   │   ├── LDL_vs_CONTROL/Set_046deg.csv
-│   ├── classification_compare_results.csv
-│   ├── best_model_per_classification.csv
+The dataset contains 46 images. Accuracy before and after slicing and rotation optimization:
+
+| Task | Original | Optimized | Best setup |
+| --- | --- | --- | --- |
+| HDL vs CONTROL | 0.76 | 0.98 | Extra Trees, 60° slices, 30° rotation |
+| HDL vs LDL | 0.75 | 0.82 | Logistic Regression, 60° slices, 16° rotation |
+| LDL vs CONTROL | 0.97 | 1.00 | Random Forest, 45° slices, 46° rotation |
+| HDL vs LDL vs CONTROL | 0.67 | 0.82 | Extra Trees, 60° slices, 25° rotation |
+
+Because the dataset is small, these results should be confirmed on a larger dataset.
+
+## Project structure
 
 ```
+rotation_angle_optimization/
+├── rotating_angle_analysis_45deg/
+│   ├── rotate_0_to_360_at_45deg.py        # 45° slices for each starting angle
+│   └── merge_all_csvs_for_45deg.py
+├── rotating_angle_analysis_60deg/
+│   ├── rotate_0_to_360_at_60deg.py        # 60° slices for each starting angle
+│   └── merge_all_csvs_for_60deg.py
+└── best_rotation_selector/
+    ├── best_rotating_angle_finder.py      # finds the best starting angle per task
+    └── visualize_best_rotation_result.py
+original_dataset_classification/
+├── feature_extraction_and_visualization.py   # features from the original images
+├── original_dataset_model_comparison.py      # compares classifiers (baseline)
+└── evaluate_classifiers_with_confusion.py
+slicing_angle_analysis/
+├── slice_feature_extraction.py        # features for each slice angle
+└── class_compare_slicing_angle.py
+visualize_best_model_results/
+├── compare_best_model_confusions.py
+└── confusion_matrix_with_sample_info.py
+```
 
----
+## Setup
 
-## Gerekli Kurulumlar
-Projenin çalışabilmesi için aşağıdaki Python kütüphaneleri gereklidir:
 ```bash
 pip install numpy pandas opencv-python matplotlib scikit-learn scipy seaborn tqdm
 ```
 
----
+The dataset is not included in this repository. To run the code, create these folders in the project root:
 
-## Kullanım Talimatları
-1️⃣ **Veri klasörlerini oluşturun**:  
-- Projenin kök dizininde `data/` klasörünü oluşturun ve altına aşağıdaki dizinleri yerleştirin:  
-  - `DataBase/`: Ham kan damlası görüntüleri.  
-  - `Cropped_Sets_45deg/`: 45° dilimleme (slicing) yapılmış görüntüler.  
-  - `Cropped_Sets_60deg/`: 60° dilimleme (slicing) yapılmış görüntüler.  
-- Projenin kök dizininde `CSV/` klasörünü oluşturun ve altına sonuçların ve çıkarılan özelliklerin kaydedileceği klasörleri oluşturun.  
+- `data/DataBase/`: raw blood drop images
+- `CSV/`: extracted features and classification results are saved here
 
-2️⃣ **Kod dosyalarını çalıştırın**:  
-Her analiz dosyası kendi alt klasöründe yer alır. Aşağıda örnek kullanım komutları verilmiştir:  
+## Usage
+
+Run the scripts from the project root, for example:
+
 ```bash
-python KOD/rotation_angle_optimization/rotating_angle_analysis_45deg/merge_all_csvs_for_45deg.py
-python KOD/rotation_angle_optimization/rotating_angle_analysis_60deg/merge_all_csvs_for_60deg.py
-python KOD/slicing_angle_analysis/slice_feature_extraction.py
-python KOD/original_dataset_classification/original_dataset_model_comparison.py
+python original_dataset_classification/feature_extraction_and_visualization.py
+python original_dataset_classification/original_dataset_model_comparison.py
+python slicing_angle_analysis/slice_feature_extraction.py
+python rotation_angle_optimization/rotating_angle_analysis_45deg/rotate_0_to_360_at_45deg.py
+python rotation_angle_optimization/rotating_angle_analysis_45deg/merge_all_csvs_for_45deg.py
+python rotation_angle_optimization/best_rotation_selector/best_rotating_angle_finder.py
+```
 
+Output CSVs and plots are written under `CSV/`.
 
-3️⃣ **Sonuçlar**:  
-- Çıktı dosyaları ./CSV/ dizininde oluşturulur.
-- Özellik CSV'leri FeatureCSVs/, sınıflandırma sonuçları ise FinalClassificationCSVs/ ve ilgili alt klasörlerde yer alacaktır.
-- BestRotatingAngle/, classification_compare_results.csv, best_model_per_classification.csv gibi dosyalar da bu dizin içinde bulunur.
+## Contact
 
----
-
-## Açıklamalar
-- 📌 **Veri Yolları**: Tüm kodlar **göreli yollar** ile çalışır. Proje kök dizininden (`KOD/`) başlatılmalıdır.  
-- 📌 **Fonksiyonlar**: Kod içinde fonksiyonlar `docstring` açıklamaları ile belgelenmiştir.  
-- 📌 **Analiz Dosyaları**: Her alt klasörde slicing, rotasyon, ve model karşılaştırma için ayrı dosyalar bulunur.  
-
----
-
-##  Katkıda Bulunma
-Projenin gelişimine katkıda bulunmak için fork edip PR gönderebilirsiniz.  
-
----
-
-## İletişim
-Projeyle ilgili sorularınız için cisemkaplan07@gmail.com üzerinden iletişime geçebilirsiniz.
-
----
+Habibe Çisem Kaplan · cisemkaplan07@gmail.com
